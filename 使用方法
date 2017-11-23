@@ -1,0 +1,205 @@
+一、HtmlAgilityPack.dll网页抓取数据
+原创 2014年03月04日 13:59:24 标签：爬虫 /数据 /xml /HtmlAgilityPack 2345
+
+根据公司的需求需要到指定网站抓取相关数据，即爬虫。
+      
+网上有很多的工具以及第三方的dll，也可以用WebClient等进行抓取网站内容，或者使用一些正则解析、截取字符串。
+ 
+所以在网上搜索一下，发现HtmlAgilityPack这个第三方的dll很不错，都是封装
+ 
+好的方法，直接调用即可。是将gtml转化成xml，然后进行解析。
+ 
+官网：http://htmlagilitypack.codeplex.com/
+下载：http://htmlagilitypack.codeplex.com/downloads/get/437941
+相关博客：http://www.cnblogs.com/blsong/archive/2012/07/25/2608252.html
+                  http://zhoufoxcn.blog.51cto.com/792419/595344/
+                  http://www.cnblogs.com/rupeng/archive/2012/02/07/2342012.html
+ 
+相关属性：
+Attributes 　　　　　　　　　　　　获取节点的属性集合
+ChildNodes　　　　　　　　　　　　获取子节点集合(包括文本节点)
+Closed　　　　　　　　　　　　　　该节点是否已关闭(</xxx>)
+ClosingAttributes　　　　　　　　  在关闭标签的属性集合
+FirstChild　　　　　　　　　　　　  获取第一个子节点
+HasAttributes　　　　　　　　　　  判断该节点是否含有属性
+HasChildNodes　　　　　　　　　　判断该节点是否含有子节点
+HasClosingAttributes　　　　　　  判断该节点的关闭标签是否含有属性(</xxx class="xxx">)
+Id　　　　　　　　　　　　　　　　 获取该节点的Id属性
+InnerHtml　　　　　　　　　　　　 获取该节点的Html代码
+InnerText　　　　　　　　　　　　 获取该节点的内容，与InnerHtml不同的地方在于它会过滤掉Html代码，而InnerHtml是连Html代码一起输出
+LastChild　　　　　　　　　　　　  获取最后一个子节点
+Line　　　　　　　　　　　　　　　 获取该节点的开始标签或开始代码位于整个HTML源代码的第几行(行号)
+LinePosition　　　　　　　　　　　 获取该节点位于第几列
+Name　　　　　　　　　　　　　　  Html元素名
+NextSibling　　　　　　　　　　　　获取下一个兄弟节点
+NodeType　　　　　　　　　　　　  获取该节点的节点类型
+OriginalName　　　　　　　　　　　获取原始的未经更改的元素名
+OuterHtml　　　　　　　　　　　　 整个节点的代码
+OwnerDocument　　　　　　　　　节点所在的HtmlDocument文档
+ParentNode　　　　　　　　　　　　获取该节点的父节点
+PreviousSibling　　　　　　　　　　获取前一个兄弟节点
+StreamPosition　　　　　　　　　　该节点位于整个Html文档的字符位置
+XPath　　　　　　　　　　　　　　  根据节点返回该节点的XPath
+ 
+代码：
+  private string url = "http://www.baidu.com";
+        /// <summary>
+        /// 获取页面标签值
+        /// </summary>
+        public void ReadUrl()
+        {
+            HtmlWeb web = new HtmlWeb();
+            HtmlAgilityPack.HtmlDocument doc = web.Load(hosturl);
+            //1.取网页内容
+            //var node = doc.DocumentNode;
+            ////查找id为dfTitle的值
+            //HtmlNodeCollection nodes = node.SelectNodes("//*[@id=\"dfTitle\"]");
+           
+            //if (nodes != null)
+            //{
+            //    //InnerText取整个网页内容,不包含html标签
+            //    var title = nodes.FirstOrDefault().InnerText;
+            //    //InnerText取整个网页内容,包含html标签
+            //    var content = nodes.FirstOrDefault().InnerHtml;
+                
+            //}
+ 
+            //取网页特定值
+            //表示先从html查找table里的a标签，div[2]表示2层div
+            string xpathstring = "/html/body/div[2]/div/table/tr/td/a";
+            HtmlNodeCollection nodes = doc.DocumentNode.SelectNodes(xpathstring);
+            if (nodes != null)
+            {
+                foreach (var htmlNode in nodes)
+                {
+                    var phref = htmlNode.Attributes["href"].Value;
+                }
+            }
+        }
+        
+        
+  二、开源项目Html Agility Pack实现快速解析Html
+  
+  这是个很好的的东西，以前做Html解析都是在用htmlparser，用的虽然顺手，但解析速度较慢，碰巧今天找到了这个，就拿过来试，一切出乎意料，非常爽，推荐给各位使用。
+
+下面是一些简单的使用技巧，希望对大家有用，我个人也是个学习过程。
+
+ 
+
+Why Html Agility Pack? (以下简称HAP)
+
+.Net下解析HTML文件有很多种选择，包括微软自己也提供MSHTML用于manipulate HTML文件。但是，经过我一段时间的搜索，Html Agility Pack浮出水面：它是Stackoverflow网站上推荐最多的C# HTML解析器。HAP开源，易用，解析速度快。
+
+How to use HAP?
+
+1. 下载http://htmlagilitypack.codeplex.com/
+
+2. 解压
+
+3. 在Visual Studio Solution里，右击project -> add reference -> 选择解压文件夹里的HTMLAgilityPack.dll -> 确定
+
+4. 代码头部加入 using HtmlAgilityPack;
+
+Done!
+
+ 
+
+HtmlWeb webClient = new HtmlWeb();    
+HtmlDocument doc = webClient.Load("http://xxx");    
+    
+HtmlNodeCollection hrefList = doc.DocumentNode.SelectNodes(".//a[@href]");    
+    
+if (hrefList != null)    
+{    
+     foreach (HtmlNode href in hrefList)    
+     {    
+        HtmlAttribute att = href.Attributes["href"];    
+        doSomething(att.Value);    
+    
+     }    
+    
+}    
+ 
+
+ 
+
+Q: 如何根据ID选择HTML结点？
+
+A: 利用@id='xxx', e.g.,
+
+ 
+
+HtmlNode bugSum = doc.DocumentNode.SelectSingleNode("//h2[@id='summary']");    
+ 
+
+ 
+
+Q: 如何得到结点的文字内容或Html内容？
+
+ 
+
+node.InnerText.Trim()    
+node.InnerHtml    
+node.OuterHtml    
+ 
+
+Q: 如何在html树结构下查找结点？
+
+A: 比如从根节点查找id=container的div下的第一个table:
+
+ 
+
+HtmlNode table = doc.DocumentNode.SelectSingleNode("//div[@id='container']/table[1]");    
+ 
+
+ 
+
+注意路径里"//"表示从根节点开始查找，两个斜杠‘//’表示查找所有childnodes；一个斜杠'/'表示只查找第一层的childnodes（即不查找grandchild）；点斜杠"./"表示从当前结点而不是根结点开始查找。接上一行代码，比如要查找table所有直接子结点的tr:
+
+HtmlNodeCollection tr = table.SelectNodes("./tr");   
+ 
+
+Q: 如何得到结点的ID？
+
+A： 很简单： node.ID
+
+Q: 如果一段html存在字符串里，是否可以用Html Agility Pack进行处理？
+
+A：可以，先将字符串load进来，之后的处理方法一样：
+
+<pre name="code" class="csharp">//load the original html     
+string html = "some html stuff"    
+HtmlDocument doc = new HtmlDocument();    
+doc.LoadHtml(@html);    
+ 
+
+Q: 我对load进来的html进行了一些处理，比如改变了一些结点内容，删除了一些结点什么的，为什么结果却没有变化？
+
+A: 也许你忘记save你对html的改变了，假设html存在字符串中：
+
+//load the original html     
+string html = "some html stuff"    
+HtmlDocument doc = new HtmlDocument();    
+doc.LoadHtml(@html);    
+    
+//make some changes     
+doSomething();    
+    
+//save the change     
+var sb = new StringBuilder();    
+using (var writer = new StringWriter(sb))    
+{    
+    doc.Save(writer);    
+}    
+ 
+
+Q: 如何去掉外层的html tag只留下内容？
+
+A: 用remove方法。假设结点<a href=xxx>ABCD</a>，你想留下ABCD而不要<a></a>，那你需要先得到这个Html结点，假设叫link:
+
+link.ParentNode.RemoveChild(link,true);    
+ 
+
+参数true表示留下grandchild，在这里即内容ABCD; false表示将此结点连同其grandchilds一起删除。
+
+规则有很多，网上提供了源代码，可以研究一下，还有源代码有乱码问题，是字符集的问题，只需要写一个方法来自动判断就可以解决了
