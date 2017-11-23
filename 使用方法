@@ -203,3 +203,394 @@ link.ParentNode.RemoveChild(link,true);
 参数true表示留下grandchild，在这里即内容ABCD; false表示将此结点连同其grandchilds一起删除。
 
 规则有很多，网上提供了源代码，可以研究一下，还有源代码有乱码问题，是字符集的问题，只需要写一个方法来自动判断就可以解决了
+
+
+
+
+
+一个解析html的C#类库HtmlAgilityPack，
+
+HtmlAgilityPack是一个基于.Net的、第三方免费开源的微型类库，主要用于在服务器端解析html文档（在B/S结构的程序中客户端可以用Javascript、jquery解析html）。截止到本文发表时，HtmlAgilityPack的最新版本为 1.4.6。下载地址：http://htmlagilitypack.codeplex.com/。最新版本支持Linq to Objects ( LINQ to Xml ).
+
+准备:
+
+如果你有安装Nuget的话，可以直接查找安装即可。
+
+下载后解压缩后有3个文件，这里只需要将其中的HtmlAgilityPack.dll（程序集）、HtmlAgilityPack.xml（文档，用于Visual Studio 2008中代码智能提示和帮助说明之用）引入解决方案中即可使用，无需安装任何东西，非常好用。
+
+在C#类文件开头引入using HtmlAgilityPack;就可以使用该命名空间下的类型了。实际使用中，几乎都是以HtmlDocument类为主线的，这一点非常类似于微软.net framework中的XmlDocument类。XmlDocument类是操作的是xml文档，而HtmlDocument类操作的是html文档（其实也可以操作xml文档），它们的操作方式都是基于Dom，所不同的是后者取消了诸如GetElementsByTagName这样的方法，强化了GetElementById方法（在HtmlDocument中可以直接使用，而XmlDocument则不可以）。
+
+HtmlAgilityPack中定位节点基本上都用Xpath表达式，Xpath表达式的参考文档可见：http://www.w3school.com.cn/xpath/xpath_syntax.asp。自行学习。
+
+不过可以先用几个简单就可以。比如，我们用到最多可能就是针对某个元素（div）、或者某个class属性的div、或者某个id的div，或者以什么开头的div，
+
+类似这样的Xpath还是比较简单的。
+
+Xpath举几个例子，下面的代码中我们就会用到：
+
+"//comment()"在XPath中表示“所有注释节点”
+
+1、获取网页title：doc.DocumentNode.SelectSingleNode("//title").InnerText; 
+解释：XPath中“//title”表示所有title节点。SelectSingleNode用于获取满足条件的唯一的节点。
+
+
+2、获取所有的超链接：doc.DocumentNode.Descendants("a")
+
+
+3、获取name为kw的input，也就是相当于getElementsByName()：
+var kwBox = doc.DocumentNode.SelectSingleNode("//input[@name='kw']");
+
+解释："//input[@name='kw']"也是XPath的语法，表示：name属性等于kw的input标签。
+
+//li/h3/a[@href]：所有li下面的h3包含a超级链接有href属性才符合。有的a可能是支持的js事件
+
+//div[starts-with(@class,'content_single')]：所有符合条件的div，并且它的class是由字符串content_single 开头的。
+
+//标示获取documet下的所有符合条件。/div标示从根目录开始的符合条件的。
+
+ 
+
+以上是准备工作。下面说一下HtmlAgilityPack读取web页面，并解析的方法步骤。
+
+1.读取url：
+
+ 
+
+HtmlAgilityPack.HtmlWeb hw = new HtmlAgilityPack.HtmlWeb();
+
+HtmlAgilityPack.HtmlDocument doccc = hw.Load(url);//是你需要解析的url
+
+ArrayList ImagePtahs = GetHrefs(doccc);
+
+这里可能会遇到2个问题。
+
+一个是编码问题，一个是gzip不支持的问题。
+
+首先编码问题解决办法：就是不用HtmlAgilityPack去获取Url的data数据，自己获取了。大家可能就问了：我自己获取了他不给我解析那？
+
+没事，他不会那么笨的。谁的肉不是吃啊？
+
+方法如下：
+
+ 
+
+WebProxy proxyObject = new WebProxy(IP, port);//这里我是用的代理。
+
+//向指定地址发送请求
+
+HttpWebRequest HttpWReq = (HttpWebRequest)WebRequest.Create(url);
+
+HttpWReq.Proxy = proxyObject;
+
+HttpWReq.Timeout = 10000;
+
+HttpWebResponse HttpWResp = (HttpWebResponse)HttpWReq.GetResponse();
+
+StreamReader sr = new StreamReader(HttpWResp.GetResponseStream(), System.Text.Encoding.GetEncoding("UTF-8"));
+
+//注意上面的编码了吗？？
+
+HtmlAgilityPack.HtmlDocument doc = new HtmlAgilityPack.HtmlDocument();
+
+doc.Load(sr);
+
+int res = CheckIsGoodProxy(doc); //这是我解析的函数，还没到那一步。不解释了。
+
+sr.Close();
+
+HttpWResp.Close();
+
+HttpWReq.Abort();
+
+
+另一个问题就是很奇怪了。gzip的问题开启了gzip压缩的网页请求时会报错。报错信息为“gzip”不是受支持的编码名。
+
+在谷歌上搜索了半天，终于找到解决方案，而且不必更换HttpRequest或WebClient进行请求。同时还可以用此方法设置cookie，render伪装等等。。。
+解决后代码如下：在你发起请求的是修改一下。
+
+ 
+
+HtmlWeb webClient = new HtmlWeb();
+
+HtmlAgilityPack.HtmlWeb.PreRequestHandler handler = delegate(HttpWebRequest request)
+
+{
+
+request.Headers[HttpRequestHeader.AcceptEncoding] = "gzip, deflate";
+
+request.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
+
+request.CookieContainer = new System.Net.CookieContainer();
+
+return true;
+
+};
+
+webClient.PreRequest += handler;
+
+HtmlDocument doc = webClient.Load(this.getUrl());
+
+可能最新版本的HtmlAgilityPack会修复这个问题吧。期待中。
+
+2.用Xpath解析。
+
+这一步就比较简单了。就用Xpath选出你想要的数据，遍历他们，取出他们的value即可。
+
+实例代码:
+
+ 
+
+private ArrayList GetHrefs(HtmlAgilityPack.HtmlDocument _doc)
+
+{
+
+try
+
+{
+
+Images = new ArrayList();
+
+HtmlNodeCollection hrefs = _doc.DocumentNode.SelectNodes("//li/h3/a[@href]");
+
+HtmlNodeCollection hrefs2 = _doc.DocumentNode.SelectNodes("//div[starts-with(@class,'content_single')]");
+
+if (hrefs == null)
+
+return new ArrayList();
+
+foreach (HtmlNode href in hrefs)
+
+{
+
+// Images.Add(href.Attributes["src"].Value);
+
+string hreff = href.Attributes["href"].Value;// 排除 博海拾贝第二百零二期】吃完薯条寂寞了
+
+string title = href.Attributes["title"].Value;
+
+if (title.IndexOf("邪恶") >= 0)
+
+{
+
+continue;
+
+}
+
+if (title.IndexOf("恶搞") >= 0)
+
+{
+
+continue;
+
+}
+
+if (title.IndexOf("雷人") >= 0)
+
+{
+
+continue;
+
+}
+
+///执行数据保存的逻辑
+
+}
+
+}
+
+catch (Exception ex)
+
+{
+
+ShowLogMsg("出错了："+ex.Message+ex.StackTrace);
+
+return new ArrayList();
+
+}
+
+}
+
+ 
+
+每一个Htmlnode，你要获取他的数据用这个方法： img.Attributes["src"].Value
+
+ 
+
+整个过程就是这样的简单。大家有不明白或者有问题可以留言交流。
+
+
+
+
+
+
+最近工作中用到了HtmlAgilityPack的类库，总的来说使用起来确实感觉挺方便，别的不多说，就这类似于能把HTML标签自动补全的Load()方法就感觉挺赞(其实上不是不全，而是将不完整的标签给格式化一下)。但这不就足够了吗？舍得自己去用正则表达式去匹配，万一匹配的内容就是HTML作者写的文本内容，岂不功亏一篑。
+不废话，使用的时候加载HtmlAgilityPack.dll(下载去官网)，using HtmlAgilityPack; 就可以使用HtmlAgilityPack了。
+本文以格式化一篇Html为例，讲述一点此类库的一点用法，至于更多的方法和属性，那就看作者的发挥了。
+何为格式化HTML？当你看到别人写的HTML是这样的：
+<html><head><title>就是一个字符串</title></head><body><p>就是不换行</p></body></html>
+是不是觉得很头疼呢？写成规范一点的树结构是不是更好一点？(虽然改变了原文，加入了很多/r,/n,/t，但毕竟这是用户想看到的)
+<html>
+______<head>
+____________<title>
+__________________就是一个字符串
+____________</title>
+______</head>
+______<body>
+____________<p>
+__________________就是不换行
+____________</p>
+______</body>
+</html>
+当然了，强大的IDE和各种工具会帮你做到，但是！实际开发中怎会容你轻松的使用其他非开源工具，而开元的HTMLAgility区区几行代码便能做到。
+不多说，上代码：
+[html] view plain copy
+private HtmlDocument loadWebSite(string path)  
+{  
+    HtmlDocument hDoc = new HtmlDocument();//整片html文档对象  
+    if (File.Exists(path))  
+    {  
+        hDoc.Load(path, Encoding.Default);  
+        hDoc.LoadHtml(hDoc.DocumentNode.OuterHtml);//load两边是为了保证标签的完整性，DocumentNode代表文档节点<span style="white-space:pre">                         </span>     <span style="white-space:pre">                      </span>     (文档的开头了结尾，不一定是<html>，OuterHtml代表此nod<span style="white-space:pre">    </span>e的html文本)  
+    }  
+    return hDoc;  
+}  
+计算父节点的方法，以<html>节点为根父节点，有所少个父节点，就加入多少个/t(缩进)
+[html] view plain copy
+<span style="white-space:pre">  </span>private int parentNumbers(HtmlNode node, int temp)  
+        {  
+            int result = temp;  
+            if (node.ParentNode != null)  
+            {  
+                if (node.ParentNode.Name.Equal("html"))  
+                {  
+                    return result;  
+                }  
+                else  
+                {  
+                    result = result + parentNumbers(node.ParentNode, 1);//递归调用  
+                }  
+            }  
+            return result;  
+        }  
+ 好了，以上两个方法是准备工作，真正格式化的方法在这里：
+[html] view plain copy
+<span style="white-space:pre">  </span>private void convertHTML(string filePath)  
+        {  
+            HtmlDocument hDoc = loadWebSite(filePath);  
+            string reg = "\\S+";  
+            Regex regex = new Regex(reg, RegexOptions.IgnoreCase);//此处的正则表达式是为了将html文件写成一行，将原作者的转义字符取消，加入自己的转义字符(/r/n/t)  
+            HtmlNodeCollection htmlNodeCollection = hDoc.DocumentNode.SelectNodes("/html");  
+            StringBuilder htmlContent = new StringBuilder();  
+  
+            if (htmlNodeCollection.Count() > 0)  
+            {  
+                foreach (HtmlNode htmlNode in htmlNodeCollection)  
+                {  
+                    foreach (HtmlNode hNode in htmlNode.Descendants().Where(n => n.NodeType == HtmlNodeType.Text))  
+                    {  
+                        Match match = regex.Match(hNode.OuterHtml);  
+                        if (match.Success == false)  
+                        {  
+                            hNode.InnerHtml = string.Empty;  
+                        }  
+                        else  
+                        {  
+                            hNode.InnerHtml = hNode.InnerHtml.Trim();  
+                        }  
+                    }  
+                    htmlContent.Append(htmlNode.OuterHtml);  
+                }  
+            }  
+            else { throw new Exception("Document Have No Html Element"); }  
+            //load两遍,保证标签的完整性  
+            hDoc.LoadHtml(htmlContent.ToString());  
+            StringBuilder content = new StringBuilder(hDoc.DocumentNode.OuterHtml);  
+            hDoc.LoadHtml(content.ToString());  
+            HtmlNodeCollection lineCollection = hDoc.DocumentNode.SelectNodes("/html");  
+            Dictionary<int, string> insContent = new Dictionary<int, string>();//key为要插入的index，value为插入的内容，也就是/r/n, /r/n/t, /r/n/t/t.../t  
+            StringBuilder tempBuilder = new StringBuilder();  
+  
+            foreach (HtmlNode htmlNode in lineCollection)  
+            {  
+                insContent.Add(htmlNode.StreamPosition, "\r\n");  
+                if (htmlNode.HasChildNodes)  
+                {  
+                    insContent.Add(htmlNode.FirstChild.StreamPosition, "\r\n\t");  
+                    insContent.Add(htmlNode.LastChild.StreamPosition + htmlNode.LastChild.OuterHtml.Length, "\r\n");  
+                }  
+                foreach (HtmlNode hNode in htmlNode.Descendants())//遍历所有子代节点  
+                {  
+                    if (hNode.ParentNode.Name.Eq("style"))//此处的判断是针对HTMLAgility的一个Bug，当节点为<style>时，此节点的StreamPosition为0，这是不对的，正确值应为对应<span style="white-space:pre">                           </span>    的html字符串形式时的Index值  
+                    {  
+                        continue;  
+                    }  
+                    if (hNode.PreviousSibling != null)//上一个兄弟节点  
+                    {  
+                        if (!insContent.ContainsKey(hNode.StreamPosition))  
+                        {  
+                            tempBuilder.Remove(0, tempBuilder.Length);  
+                            tempBuilder.Append("\r\n");  
+                            for (int i = 0; i < parentNumbers(hNode, 1); i++)  
+                            {  
+                                tempBuilder.Append("\t");  
+                            }  
+                            insContent.Add(hNode.StreamPosition, tempBuilder.ToString());  
+                        }  
+                    }  
+                    if (hNode.NextSibling != null)//下一个兄弟节点  
+                    {  
+                        if (!insContent.ContainsKey(hNode.StreamPosition))  
+                        {  
+                            tempBuilder.Remove(0, tempBuilder.Length);  
+                            tempBuilder.Append("\r\n");  
+                            for (int i = 0; i < parentNumbers(hNode, 1); i++)  
+                            {  
+                                tempBuilder.Append("\t");  
+                            }  
+                            insContent.Add(hNode.NextSibling.StreamPosition, tempBuilder.ToString());  
+                        }  
+                    }  
+                    if (hNode.HasChildNodes)  
+                    {  
+                        if (hNode.FirstChild != null)//第一个子节点  
+                        {  
+                            if (!insContent.ContainsKey(hNode.FirstChild.StreamPosition))  
+                            {  
+                                tempBuilder.Remove(0, tempBuilder.Length);  
+                                tempBuilder.Append("\r\n");  
+                                for (int i = 0; i < parentNumbers(hNode.FirstChild, 1); i++)  
+                                {  
+                                    tempBuilder.Append("\t");  
+                                }  
+                                insContent.Add(hNode.FirstChild.StreamPosition, tempBuilder.ToString());  
+                            }  
+                        }  
+                        if (hNode.LastChild != null)//最后一个子节点  
+                        {  
+                            if (!insContent.ContainsKey(hNode.LastChild.StreamPosition + hNode.LastChild.OuterHtml.Length))  
+                            {  
+                                tempBuilder.Remove(0, tempBuilder.Length);  
+                                tempBuilder.Append("\r\n");  
+                                for (int i = 0; i < parentNumbers(hNode, 1); i++)  
+                                {  
+                                    tempBuilder.Append("\t");  
+                                }  
+                                insContent.Add(hNode.LastChild.StreamPosition + hNode.LastChild.OuterHtml.Length, tempBuilder.ToString());  
+                            }  
+                        }  
+                    }  
+                }  
+            }  
+  
+            foreach (KeyValuePair<int, string> item in insContent.OrderByDescending(n => n.Key))//倒序插入，保证原html不变  
+            {  
+                content.Insert(item.Key, item.Value);  
+            }  
+            File.WriteAllText(filePath, content.ToString(), Encoding.UTF8);  
+        }  
+好了，以上方法能够实现格式化一篇html的功能了，经测试，新浪，搜狐，网易的门户网站的html已经格式化成功，其实作者也可以看看这些门户网站的html代码，那是多么的乱。针对于HTMLAgility的类库和方法介绍的并不算全面，但是以上这些获取节点集合，属性集合，innerHtml等等吧，还有HtmlWeb类都是最常用的，解析HTML我想足够了，就这些吧。
+
+
+
+
+
